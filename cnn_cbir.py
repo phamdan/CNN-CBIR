@@ -4,9 +4,8 @@ import torch.nn.functional as F
 import torch
 import numpy as np
 import cv2
-
 import os
-
+from resnet_new import resnet50_new
 # multiprocessing
 from joblib import Parallel, delayed
 import multiprocessing
@@ -96,10 +95,8 @@ class FeatureExtractor:
         """
         assert isinstance(backbone, str), 'Callable object is not supported currently!'
         if backbone == 'resnet50':
-            self.cnn = models.resnet50(pretrained=True)
-            del self.cnn.fc
-            del self.cnn.avgpool
-
+            self.cnn = resnet50_new(pretrained=True)
+            
         elif backbone == 'vgg19':
             self.cnn = models.vgg19(pretrained=True)
             del self.cnn.classifier
@@ -254,11 +251,7 @@ class FeatureExtractor:
             # fea = self.cnn.features(im_tensor)
 
             # add code here
-            modules=list(self.cnn.children())[:]
-            resnet50=nn.Sequential(*modules)
-            for p in resnet50.parameters():
-                p.requires_grad = False
-            fea= resnet50(im_tensor)
+            fea= self.cnn(im_tensor)
             #################
 
             _, c_im, h_im, w_im  = im_tensor.size()
