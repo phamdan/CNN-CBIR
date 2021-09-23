@@ -82,7 +82,7 @@ class RZAC(nn.Module):
     
 
 class FeatureExtractor:
-    def __init__(self, backbone='vgg16',
+    def __init__(self, backbone='resnet50',
                        cache_dir='feature_cache',
                        pool='rmac',
                        l0=1,
@@ -95,9 +95,11 @@ class FeatureExtractor:
             backbone: the model used for feature extraction
         """
         assert isinstance(backbone, str), 'Callable object is not supported currently!'
-        if backbone == 'vgg16':
-            self.cnn = models.vgg16(pretrained=True)
-            del self.cnn.classifier
+        if backbone == 'resnet50':
+            self.cnn = models.resnet50(pretrained=True)
+            del self.cnn.fc
+            del self.cnn.avgpool
+
         elif backbone == 'vgg19':
             self.cnn = models.vgg19(pretrained=True)
             del self.cnn.classifier
@@ -249,8 +251,16 @@ class FeatureExtractor:
                   
         with torch.no_grad():
             im_tensor = self.transform(im).unsqueeze(0).to(self.device)
-            fea = self.cnn.features(im_tensor)
-        
+            # fea = self.cnn.features(im_tensor)
+
+            # add code here
+            modules=list(self.cnn.children())[:]
+            resnet50=nn.Sequential(*modules)
+            for p in resnet50.parameters():
+                p.requires_grad = False
+            fea= resnet50(im_tensor)
+            #################
+
             _, c_im, h_im, w_im  = im_tensor.size()
             _, c_f, h_f, w_f = fea.size()
             s_h = h_im / h_f
@@ -354,6 +364,7 @@ class SearchEngine:
         '''
         # we mask query image with object mask before retrieval
         masked_img, patches = self._get_masked_img(img, bbs)
+        
         top_k_img = self.retrieve_img(masked_img, top_k=top_k)
         
         if locate:
@@ -368,6 +379,7 @@ class SearchEngine:
         
       
     def _get_masked_img(self, img, bbs):
+        
         '''
         helper function for creating bounding box masked image and 
         patches containing single objects
@@ -382,6 +394,7 @@ class SearchEngine:
         patches = []
         masked = np.zeros_like(img)
         for bb in bbs:
+
             x_l = bb[0]
             x_r = bb[0] + bb[2]
             y_u = bb[1]
